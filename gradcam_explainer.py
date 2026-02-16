@@ -12,6 +12,7 @@ def make_gradcam_heatmap(img_array, model, last_conv_layer_name):
     with tf.GradientTape() as tape:
         conv_outputs, predictions = grad_model(img_array)
         pred_index = tf.argmax(predictions[0])
+        confidence = predictions[0][pred_index]
         class_channel = predictions[:, pred_index]
 
     grads = tape.gradient(class_channel, conv_outputs)
@@ -25,7 +26,7 @@ def make_gradcam_heatmap(img_array, model, last_conv_layer_name):
     denom = tf.math.reduce_max(heatmap)
     heatmap = tf.maximum(heatmap, 0) / (denom + 1e-8)
 
-    return heatmap.numpy(), int(pred_index)
+    return heatmap.numpy(), int(pred_index), float(confidence.numpy())
 
 
 def generate_gradcam(image_pil, model, class_names, img_size, last_conv_layer_name):
@@ -36,7 +37,7 @@ def generate_gradcam(image_pil, model, class_names, img_size, last_conv_layer_na
     img_array = np.array(img_resized) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
 
-    heatmap, pred_idx = make_gradcam_heatmap(img_array, model, last_conv_layer_name)
+    heatmap, pred_idx, confidence = make_gradcam_heatmap(img_array, model, last_conv_layer_name)
     pred_label = class_names[pred_idx]
 
     # heatmap al tamaño original
@@ -51,4 +52,4 @@ def generate_gradcam(image_pil, model, class_names, img_size, last_conv_layer_na
     superimposed = cv2.addWeighted(img_bgr, 0.6, heatmap_color, 0.4, 0)
     superimposed_rgb = cv2.cvtColor(superimposed, cv2.COLOR_BGR2RGB)
 
-    return pred_label, superimposed_rgb
+    return pred_label, confidence, superimposed_rgb
